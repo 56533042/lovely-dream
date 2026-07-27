@@ -1,0 +1,14 @@
+{
+  "name": "zhanlan-workbench",
+  "version": "1.0.0",
+  "description": "湛蓝工作台 - 莫迪蓝色系创作工作台",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . \"湛蓝工作台\" --platform=darwin --arch=arm64 --overwrite --out=dist --prune=true --icon=icon.icns"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-packager": "^17.1.2"
+  }
+}
