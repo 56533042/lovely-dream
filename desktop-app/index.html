@@ -77,35 +77,59 @@ body{font-family:var(--font);background:var(--bg-app);color:var(--t-dark);font-s
 /* Center content */
 .content{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:14px}
 
-/* Calendar */
+/* Calendar - compact */
 .calendar-section{
   background:var(--bg-card);border-radius:var(--radius-lg);
-  padding:14px 18px;box-shadow:var(--shadow-sm);flex-shrink:0;
+  padding:8px 14px;box-shadow:var(--shadow-sm);flex-shrink:0;
 }
-.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.cal-title{font-size:15px;font-weight:600;color:var(--c-accent)}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cal-header-left{display:flex;align-items:center;gap:8px}
+.cal-title{font-size:14px;font-weight:600;color:var(--c-accent)}
+.cal-toggle{
+  background:var(--bg-input);border:none;padding:3px 10px;border-radius:var(--radius);
+  cursor:pointer;font-size:11px;color:var(--t-medium);transition:var(--transition);
+}
+.cal-toggle:hover{background:var(--bg-hover)}
 .cal-nav{
-  background:var(--bg-input);border:none;width:28px;height:28px;border-radius:50%;
-  cursor:pointer;font-size:16px;color:var(--c-primary);transition:var(--transition);
+  background:var(--bg-input);border:none;width:24px;height:24px;border-radius:50%;
+  cursor:pointer;font-size:14px;color:var(--c-primary);transition:var(--transition);
   display:flex;align-items:center;justify-content:center;
 }
 .cal-nav:hover{background:var(--bg-hover)}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.cal-weekday{
-  text-align:center;font-size:11px;color:var(--t-light);padding:4px 0;font-weight:600;
+
+/* Week strip (compact default) */
+.cal-week-strip{display:flex;gap:3px;overflow-x:auto}
+.cal-week-day{
+  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+  padding:4px 2px;border-radius:6px;cursor:pointer;transition:var(--transition);
+  position:relative;border:1px solid transparent;
 }
+.cal-week-day:hover{background:var(--bg-hover)}
+.cal-week-day .wd-name{font-size:9px;color:var(--t-light);line-height:1}
+.cal-week-day .wd-num{font-size:13px;font-weight:600;color:var(--t-medium);line-height:1.2}
+.cal-week-day.today{background:var(--c-primary);border-color:var(--c-accent)}
+.cal-week-day.today .wd-name,.cal-week-day.today .wd-num{color:var(--t-white)}
+.cal-week-day.has-note::after{
+  content:'';position:absolute;bottom:1px;width:4px;height:4px;
+  border-radius:50%;background:var(--c-warning);
+}
+.cal-week-day.today.has-note::after{background:#FFD700}
+
+/* Month grid (expanded) */
+.cal-month{display:none}
+.cal-month.show{display:block}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-weekday{text-align:center;font-size:10px;color:var(--t-light);padding:2px 0;font-weight:600}
 .cal-day{
-  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:var(--t-medium);border-radius:var(--radius);
+  height:26px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--t-medium);border-radius:5px;
   cursor:pointer;transition:var(--transition);position:relative;
 }
 .cal-day:hover:not(.empty){background:var(--bg-hover)}
 .cal-day.empty{cursor:default}
-.cal-day.today{
-  background:var(--c-primary);color:var(--t-white);font-weight:700;
-}
+.cal-day.today{background:var(--c-primary);color:var(--t-white);font-weight:700}
 .cal-day.has-note::after{
-  content:'';position:absolute;bottom:3px;width:5px;height:5px;
+  content:'';position:absolute;bottom:1px;width:4px;height:4px;
   border-radius:50%;background:var(--c-warning);
 }
 .cal-day.today.has-note::after{background:#FFD700}
@@ -284,11 +308,17 @@ body{font-family:var(--font);background:var(--bg-app);color:var(--t-dark);font-s
     <main class="content">
       <section class="calendar-section">
         <div class="cal-header">
-          <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
-          <span class="cal-title" id="calTitle"></span>
-          <button class="cal-nav" onclick="changeMonth(1)">›</button>
+          <div class="cal-header-left">
+            <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+            <span class="cal-title" id="calTitle"></span>
+            <button class="cal-nav" onclick="changeMonth(1)">›</button>
+          </div>
+          <button class="cal-toggle" id="calToggle" onclick="toggleCalendar()">📅 展开月历</button>
         </div>
-        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-week-strip" id="calWeekStrip"></div>
+        <div class="cal-month" id="calMonth">
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
       </section>
       <section class="gist-section">
         <div class="gist-block">
@@ -421,8 +451,11 @@ const SAMPLE_DATA = {
 
 /* ===== State ===== */
 let currentTrack = 'douyin';
+let currentSub = 0;
 let calYear, calMonth;
+let calExpanded = false;
 let activeNoteDate = '';
+let currentData = null; /* cached fetched data */
 
 /* ===== Init ===== */
 function init(){
@@ -453,25 +486,62 @@ function renderTracks(){
 }
 function switchTrack(id){
   currentTrack = id;
+  currentSub = 0;
   renderTracks();
   renderSubdivisions();
+  renderContent();
+  const trackName = CONFIG.tracks.find(t=>t.id===id)?.name || id;
+  showToast('已切换到: '+trackName);
 }
 function renderSubdivisions(){
   const list = document.getElementById('subdivisionList');
   const subs = CONFIG.subdivisions[currentTrack] || [];
   list.innerHTML = subs.map((s,i)=>
-    `<li class="${i===0?'active':''}" onclick="selectSub(this)">${s.icon} ${s.name}</li>`
+    `<li class="${i===currentSub?'active':''}" onclick="selectSub(${i})">${s.icon} ${s.name}</li>`
   ).join('');
 }
-function selectSub(el){
-  el.parentElement.querySelectorAll('li').forEach(li=>li.classList.remove('active'));
-  el.classList.add('active');
+function selectSub(idx){
+  currentSub = idx;
+  const list = document.getElementById('subdivisionList');
+  list.querySelectorAll('li').forEach((li,i)=>li.classList.toggle('active',i===idx));
+  renderContent();
+  const subs = CONFIG.subdivisions[currentTrack] || [];
+  const subName = subs[idx]?.name || '';
+  if(subName) showToast('已切换到: '+subName);
 }
 
 /* ===== Calendar ===== */
 function renderCalendar(){
-  const monthNames=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
-  document.getElementById('calTitle').textContent = `${calYear}年 ${monthNames[calMonth]}`;
+  const monthNames=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('calTitle').textContent = `${calYear}年${monthNames[calMonth]}`;
+  renderWeekStrip();
+  renderMonthGrid();
+}
+function renderWeekStrip(){
+  const strip=document.getElementById('calWeekStrip');
+  const today=new Date();
+  /* find Monday of current week */
+  const dow=today.getDay();
+  const mondayOffset = dow===0?-6:1-dow;
+  const monday=new Date(today);
+  monday.setDate(today.getDate()+mondayOffset);
+  /* if viewing a different month, center on that month */
+  const dayNames=['一','二','三','四','五','六','日'];
+  let html='';
+  for(let i=0;i<7;i++){
+    const d=new Date(monday);
+    d.setDate(monday.getDate()+i);
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const isToday = d.toDateString()===today.toDateString();
+    const hasNote = localStorage.getItem(`zb_notes_${ds}`);
+    html+=`<div class="cal-week-day${isToday?' today':''}${hasNote?' has-note':''}" onclick="openNote('${ds}')">
+      <span class="wd-name">${dayNames[i]}</span>
+      <span class="wd-num">${d.getDate()}</span>
+    </div>`;
+  }
+  strip.innerHTML=html;
+}
+function renderMonthGrid(){
   const firstDay=new Date(calYear,calMonth,1).getDay();
   const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
   const today=new Date();
@@ -489,6 +559,12 @@ function renderCalendar(){
     html+=`<div class="cal-day${isToday?' today':''}${hasNote?' has-note':''}" onclick="openNote('${ds}')">${day}</div>`;
   }
   grid.innerHTML=html;
+}
+function toggleCalendar(){
+  calExpanded=!calExpanded;
+  document.getElementById('calMonth').classList.toggle('show',calExpanded);
+  document.getElementById('calWeekStrip').style.display=calExpanded?'none':'flex';
+  document.getElementById('calToggle').textContent=calExpanded?'📅 收起月历':'📅 展开月历';
 }
 function changeMonth(delta){
   calMonth+=delta;
@@ -569,25 +645,79 @@ async function fetchGist(manual){
     }
     statusText.textContent=useRepo?'仓库已连接':'Gist已连接';
     dot.className='dot ok';
-    renderGistContent(content);
+    currentData = content;
+    renderContent();
     if(manual) showToast('内容已刷新');
   }catch(e){
     statusText.textContent='示例数据';
     dot.className='dot';
-    renderGistContent(SAMPLE_DATA);
+    currentData = SAMPLE_DATA;
+    renderContent();
     if(manual) showToast('获取失败，显示示例: '+e.message);
   }
 }
 
-function renderGistContent(data){
-  const inspEl=document.getElementById('inspirations');
-  const recEl=document.getElementById('recreations');
-  const insp=(data.inspirations||[]).slice(0,10);
-  const rec=(data.recreations||[]).slice(0,10);
+/* ===== Track → content tag mapping ===== */
+const TRACK_TAGS = {
+  douyin:'摄影', xiaohongshu:'摄影',
+  education:'教育', psychology:'心理', growth:'个人成长'
+};
+
+/* ===== Render content based on track + subdivision ===== */
+function renderContent(){
+  if(!currentData) return;
+  const tag = TRACK_TAGS[currentTrack] || '';
+  const subs = CONFIG.subdivisions[currentTrack] || [];
+  const subName = subs[currentSub]?.name || '';
+
+  /* filter by track tag */
+  let insp = (currentData.inspirations||[]).filter(it=>!tag||it.track===tag);
+  let rec  = (currentData.recreations||[]).filter(it=>!tag||it.track===tag);
+  let hot  = currentData.hot_topics || [];
+
+  /* determine which panel to show based on subdivision index */
+  const inspEl = document.getElementById('inspirations');
+  const recEl = document.getElementById('recreations');
+  const inspBlock = inspEl.closest('.gist-block');
+  const recBlock = recEl.closest('.gist-block');
+
+  /* default: show both */
+  inspBlock.style.display='';
+  recBlock.style.display='';
+
+  if(currentSub === 0){
+    /* 选题灵感: show inspirations, hide recreations */
+    recBlock.style.display='none';
+  } else if(currentSub === 1){
+    /* 二创角度: show recreations, hide inspirations */
+    inspBlock.style.display='none';
+  } else if(currentSub === 2){
+    /* 全部: show both */
+  } else if(currentSub === 3){
+    /* 热榜话题: show hot topics in both areas */
+    inspBlock.querySelector('h3').textContent = '🔥 今日热榜话题';
+    recBlock.style.display='none';
+    inspEl.innerHTML = hot.length ? hot.map((item,i)=>
+      `<div class="gist-item">
+        <span class="num">${i+1}</span>
+        <div class="body">
+          <div class="title">${escapeHtml(item.title)}<span class="tag tag-photo">${escapeHtml(item.source||'')}</span></div>
+          <div class="desc">热度: ${escapeHtml(item.heat||'-')}</div>
+        </div>
+      </div>`
+    ).join('') : '<div class="loading">暂无热榜数据</div>';
+    return; /* skip normal rendering */
+  }
+
+  /* reset titles */
+  inspBlock.querySelector('h3').textContent = '📝 今日选题灵感';
+  recBlock.querySelector('h3').textContent = '🔄 今日二创角度';
+
+  /* render inspirations */
   if(insp.length===0){
-    inspEl.innerHTML='<div class="loading">暂无选题灵感数据</div>';
-  }else{
-    inspEl.innerHTML=insp.map((item,i)=>{
+    inspEl.innerHTML=`<div class="loading">暂无「${tag}」相关选题灵感</div>`;
+  } else {
+    inspEl.innerHTML=insp.slice(0,10).map((item,i)=>{
       const tagCls=CONFIG.trackTags[item.track]||'tag-photo';
       return `<div class="gist-item">
         <span class="num">${i+1}</span>
@@ -598,10 +728,12 @@ function renderGistContent(data){
       </div>`;
     }).join('');
   }
+
+  /* render recreations */
   if(rec.length===0){
-    recEl.innerHTML='<div class="loading">暂无二创角度数据</div>';
-  }else{
-    recEl.innerHTML=rec.map((item,i)=>{
+    recEl.innerHTML=`<div class="loading">暂无「${tag}」相关二创角度</div>`;
+  } else {
+    recEl.innerHTML=rec.slice(0,10).map((item,i)=>{
       const tagCls=CONFIG.trackTags[item.track]||'tag-photo';
       return `<div class="gist-item">
         <span class="num">${i+1}</span>
@@ -612,16 +744,20 @@ function renderGistContent(data){
       </div>`;
     }).join('');
   }
-  if(data.updated_at){
-    const upd=new Date(data.updated_at);
+
+  /* updated time */
+  if(currentData.updated_at){
+    const upd=new Date(currentData.updated_at);
     const ts=upd.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const blocks=document.querySelectorAll('.gist-block');
-    if(blocks.length&&!blocks[0].querySelector('.gist-updated')){
-      const d=document.createElement('div');
-      d.className='gist-updated';
-      d.textContent=`更新于: ${ts}`;
-      blocks[0].appendChild(d);
-    }
+    document.querySelectorAll('.gist-block').forEach(block=>{
+      let upd_el=block.querySelector('.gist-updated');
+      if(!upd_el){
+        upd_el=document.createElement('div');
+        upd_el.className='gist-updated';
+        block.appendChild(upd_el);
+      }
+      upd_el.textContent=`更新于: ${ts}`;
+    });
   }
 }
 
