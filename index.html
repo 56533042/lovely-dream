@@ -243,6 +243,56 @@ body{font-family:var(--font);background:var(--bg-app);color:var(--t-dark);font-s
 .btn-close{background:transparent;color:var(--t-light)}
 .btn-close:hover{background:var(--bg-hover)}
 
+/* Plan detail */
+.plan-detail{font-size:13px;line-height:1.7}
+.plan-detail .plan-title{font-size:16px;font-weight:600;color:var(--c-accent);margin-bottom:4px;line-height:1.4}
+.plan-detail .plan-source{font-size:11px;color:var(--t-light);margin-bottom:14px}
+.plan-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.plan-meta span{
+  font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg-input);color:var(--t-medium);
+}
+.plan-meta span.platform{background:#D4E0E8;color:#4A6B82;font-weight:600}
+.plan-hook{
+  background:var(--bg-input);border-left:3px solid var(--c-primary);padding:10px 12px;
+  border-radius:0 var(--radius) var(--radius) 0;margin-bottom:14px;font-size:13px;color:var(--t-dark);
+}
+.plan-hook strong{color:var(--c-accent)}
+.plan-section{margin-bottom:14px}
+.plan-section h4{
+  font-size:12px;color:var(--c-accent);margin-bottom:6px;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.plan-outline{list-style:none;counter-reset:step}
+.plan-outline li{
+  padding:5px 0 5px 24px;position:relative;font-size:13px;color:var(--t-medium);
+}
+.plan-outline li::before{
+  counter-increment:step;content:counter(step);
+  position:absolute;left:0;top:5px;width:18px;height:18px;border-radius:50%;
+  background:var(--c-light);color:var(--t-white);font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.plan-outline li.indent{padding-left:40px;font-size:12px;color:var(--t-light)}
+.plan-outline li.indent::before{display:none}
+.plan-outline li.indent::after{content:'→';position:absolute;left:24px;color:var(--c-light)}
+.plan-points{list-style:none}
+.plan-points li{
+  padding:3px 0 3px 16px;font-size:12px;color:var(--t-medium);position:relative;
+}
+.plan-points li::before{content:'▸';position:absolute;left:0;color:var(--c-primary)}
+.plan-tags{font-size:12px;color:var(--c-secondary);font-family:monospace}
+.plan-cta{
+  background:#E8F0E8;border-left:3px solid var(--c-success);padding:8px 12px;
+  border-radius:0 var(--radius) var(--radius) 0;margin-bottom:14px;font-size:12px;color:#5A7A5A;
+}
+.plan-cover{
+  background:#F5EDE5;border-left:3px solid var(--c-warning);padding:8px 12px;
+  border-radius:0 var(--radius) var(--radius) 0;margin-bottom:14px;font-size:12px;color:#7A6B5A;
+}
+.gist-item.clickable{cursor:pointer}
+.gist-item.clickable:hover{background:var(--bg-hover);border-left-color:var(--c-primary)}
+.gist-item .expand-hint{font-size:10px;color:var(--c-light);float:right}
+
 /* Toast */
 .toast{
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);
@@ -382,6 +432,16 @@ body{font-family:var(--font);background:var(--bg-app);color:var(--t-dark);font-s
     <div class="modal-actions">
       <button class="btn-close" onclick="closeModal('settingsModal')">取消</button>
       <button class="btn-save" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plan Detail Modal -->
+<div class="modal-overlay" id="planModal">
+  <div class="modal" style="max-width:620px;max-height:85vh;overflow-y:auto">
+    <div id="planContent"></div>
+    <div class="modal-actions">
+      <button class="btn-close" onclick="closeModal('planModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -719,10 +779,13 @@ function renderContent(){
   } else {
     inspEl.innerHTML=insp.slice(0,10).map((item,i)=>{
       const tagCls=CONFIG.trackTags[item.track]||'tag-photo';
-      return `<div class="gist-item">
+      const hasPlan=item.plan?'clickable':'';
+      const expandHint=item.plan?'<span class="expand-hint">点击查看方案 →</span>':'';
+      const clickHandler=item.plan?`onclick="showPlan(${i},'insp')"`:'';
+      return `<div class="gist-item ${hasPlan}" ${clickHandler}>
         <span class="num">${i+1}</span>
         <div class="body">
-          <div class="title">${escapeHtml(item.title)}<span class="tag ${tagCls}">${item.track||'通用'}</span></div>
+          <div class="title">${escapeHtml(item.title)}<span class="tag ${tagCls}">${item.track||'通用'}</span>${expandHint}</div>
           <div class="desc">${escapeHtml(item.desc||item.angle||'')} · 来源: ${escapeHtml(item.source||'')}</div>
         </div>
       </div>`;
@@ -735,10 +798,13 @@ function renderContent(){
   } else {
     recEl.innerHTML=rec.slice(0,10).map((item,i)=>{
       const tagCls=CONFIG.trackTags[item.track]||'tag-photo';
-      return `<div class="gist-item">
+      const hasPlan=item.plan?'clickable':'';
+      const expandHint=item.plan?'<span class="expand-hint">点击查看方案 →</span>':'';
+      const clickHandler=item.plan?`onclick="showPlan(${i},'rec')"`:'';
+      return `<div class="gist-item ${hasPlan}" ${clickHandler}>
         <span class="num">${i+1}</span>
         <div class="body">
-          <div class="title">${escapeHtml(item.title)}<span class="tag ${tagCls}">${item.track||'通用'}</span></div>
+          <div class="title">${escapeHtml(item.title)}<span class="tag ${tagCls}">${item.track||'通用'}</span>${expandHint}</div>
           <div class="desc">${escapeHtml(item.desc||item.angle||'')} · 来源: ${escapeHtml(item.source||'')}</div>
         </div>
       </div>`;
@@ -759,6 +825,60 @@ function renderContent(){
       upd_el.textContent=`更新于: ${ts}`;
     });
   }
+}
+
+/* ===== Show Plan Detail ===== */
+function showPlan(idx, type){
+  if(!currentData) return;
+  const arr = type==='insp' ? currentData.inspirations : currentData.recreations;
+  /* filter by track tag to get correct index */
+  const tag = TRACK_TAGS[currentTrack] || '';
+  const filtered = arr.filter(it=>!tag||it.track===tag);
+  const item = filtered[idx];
+  if(!item || !item.plan) return;
+  const p = item.plan;
+  let html = '<div class="plan-detail">';
+  html += `<div class="plan-title">${escapeHtml(item.title)}</div>`;
+  html += `<div class="plan-source">来源: ${escapeHtml(item.source||'')} · 赛道: ${escapeHtml(item.track||'')}</div>`;
+  html += '<div class="plan-meta">';
+  html += `<span class="platform">📱 ${escapeHtml(p.platform||'')}</span>`;
+  html += `<span>🎬 ${escapeHtml(p.format||'')}</span>`;
+  html += `<span>⏱️ ${escapeHtml(p.est_time||'')}</span>`;
+  html += `<span>🕐 ${escapeHtml(p.post_time||'')}</span>`;
+  html += '</div>';
+  if(p.hook){
+    html += `<div class="plan-hook"><strong>开头钩子：</strong>${escapeHtml(p.hook)}</div>`;
+  }
+  if(p.outline && p.outline.length){
+    html += '<div class="plan-section"><h4>内容结构</h4><ol class="plan-outline">';
+    p.outline.forEach(line=>{
+      if(line.startsWith('  ')){
+        html += `<li class="indent">${escapeHtml(line.trim())}</li>`;
+      }else{
+        html += `<li>${escapeHtml(line)}</li>`;
+      }
+    });
+    html += '</ol></div>';
+  }
+  if(p.key_points && p.key_points.length){
+    html += '<div class="plan-section"><h4>关键要点</h4><ul class="plan-points">';
+    p.key_points.forEach(pt=>{
+      html += `<li>${escapeHtml(pt)}</li>`;
+    });
+    html += '</ul></div>';
+  }
+  if(p.hashtags){
+    html += `<div class="plan-section"><h4>标签话术</h4><div class="plan-tags">${escapeHtml(p.hashtags)}</div></div>`;
+  }
+  if(p.cta){
+    html += `<div class="plan-cta"><strong>互动引导：</strong>${escapeHtml(p.cta)}</div>`;
+  }
+  if(p.cover_tip){
+    html += `<div class="plan-cover"><strong>封面建议：</strong>${escapeHtml(p.cover_tip)}</div>`;
+  }
+  html += '</div>';
+  document.getElementById('planContent').innerHTML = html;
+  document.getElementById('planModal').classList.add('show');
 }
 
 function escapeHtml(s){
